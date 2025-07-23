@@ -10,17 +10,108 @@
     <div class="container">
         <h1 class="mt-5">My Personal Dashboard</h1>
         <p class="lead">A place to organize my day and my thoughts.</p>
-        <div id="app"></div>
+
+        <div id="app">
+            <div class="card mt-4">
+                <div class="card-header">
+                    Google Calendar Events
+                </div>
+                <div class="card-body">
+                    <button v-if="!isSignedIn" @click="handleAuthClick" class="btn btn-primary">Authorize Google Calendar</button>
+                    <div v-else>
+                        <p>Signed in as: {{ userEmail }}</p>
+                        <ul class="list-group">
+                            <li v-for="event in events" :key="event.id" class="list-group-item">
+                                <strong>{{ event.summary }}</strong>
+                                <br>
+                                <small>{{ formatEventTime(event) }}</small>
+                            </li>
+                            <li v-if="events.length === 0" class="list-group-item">No upcoming events.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <script async defer src="https://apis.google.com/js/api.js"></script>
     <script>
+        // Replace with your actual Client ID and API Key
+        const CLIENT_ID = '901537876464-0m6dvo8f6nbvj55mcrrrtafm0agc5e9d.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyAk_rZNUaPpp26PV5JeEf1JY42MUXf0WxU';
+
+        // Discovery docs for APIs
+        const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
+
+        // Authorization scopes
+        const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+
         new Vue({
             el: '#app',
             data: {
-                message: 'Welcome to your dashboard!'
+                isSignedIn: false,
+                userEmail: '',
+                events: []
             },
-            template: '<div>{{ message }}</div>'
-        })
+            methods: {
+                initClient() {
+                    gapi.client.init({
+                        apiKey: API_KEY,
+                        clientId: CLIENT_ID,
+                        discoveryDocs: DISCOVERY_DOCS,
+                        scope: SCOPES
+                    }).then(() => {
+                        // Listen for sign-in state changes.
+                        gapi.auth2.getAuthInstance().isSignedIn.listen(this.updateSignInStatus);
+
+                        // Handle the initial sign-in state.
+                        this.updateSignInStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+                    }, (error) => {
+                        console.error('Error initializing GAPI client', error);
+                        alert('Error initializing Google API client. Check console for details.');
+                    });
+                },
+                updateSignInStatus(isSignedIn) {
+                    this.isSignedIn = isSignedIn;
+                    if (isSignedIn) {
+                        this.userEmail = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile().getEmail();
+                        this.listUpcomingEvents();
+                    } else {
+                        this.userEmail = '';
+                        this.events = [];
+                    }
+                },
+                handleAuthClick() {
+                    gapi.auth2.getAuthInstance().signIn();
+                },
+                listUpcomingEvents() {
+                    gapi.client.calendar.events.list({
+                        'calendarId': 'primary',
+                        'timeMin': (new Date()).toISOString(),
+                        'showDeleted': false,
+                        'singleEvents': true,
+                        'maxResults': 10,
+                        'orderBy': 'startTime'
+                    }).then((response) => {
+                        const events = response.result.items;
+                        this.events = events;
+                    }, (error) => {
+                        console.error('Error listing events', error);
+                        alert('Error listing calendar events. Check console for details.');
+                    });
+                },
+                formatEventTime(event) {
+                    const start = event.start.dateTime || event.start.date;
+                    const end = event.end.dateTime || event.end.date;
+                    return `${new Date(start).toLocaleString()} - ${new Date(end).toLocaleString()}`;
+                }
+            },
+            mounted() {
+                // Load the Google API client library
+                gapi.load('client:auth2', this.initClient);
+            }
+        });
     </script>
 </body>
 </html>
