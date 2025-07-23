@@ -38,8 +38,8 @@
     <script async defer src="https://apis.google.com/js/api.js"></script>
     <script>
         // Replace with your actual Client ID and API Key
-        const CLIENT_ID = '__CLIENT_ID__';
-        const API_KEY = '__API_KEY__';
+        const CLIENT_ID = 'VUE_APP_GOOGLE_CLIENT_ID';
+        const API_KEY = 'VUE_APP_GOOGLE_API_KEY';
 
         // Discovery docs for APIs
         const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
@@ -47,71 +47,80 @@
         // Authorization scopes
         const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 
-        new Vue({
-            el: '#app',
-            data: {
-                isSignedIn: false,
-                userEmail: '',
-                events: []
-            },
-            methods: {
-                initClient() {
-                    gapi.client.init({
-                        apiKey: API_KEY,
-                        clientId: CLIENT_ID,
-                        discoveryDocs: DISCOVERY_DOCS,
-                        scope: SCOPES
-                    }).then(() => {
-                        // Listen for sign-in state changes.
-                        gapi.auth2.getAuthInstance().isSignedIn.listen(this.updateSignInStatus);
+        let vueApp; // Declare a variable to hold the Vue instance
 
-                        // Handle the initial sign-in state.
-                        this.updateSignInStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-                    }, (error) => {
-                        console.error('Error initializing GAPI client', error);
-                        alert('Error initializing Google API client. Check console for details.');
-                    });
+        // Define a global function that gapi.js will call once it's loaded
+        function gapi_onload() {
+            gapi.load('client:auth2', initVueApp);
+        }
+
+        function initVueApp() {
+            vueApp = new Vue({
+                el: '#app',
+                data: {
+                    isSignedIn: false,
+                    userEmail: '',
+                    events: []
                 },
-                updateSignInStatus(isSignedIn) {
-                    this.isSignedIn = isSignedIn;
-                    if (isSignedIn) {
-                        this.userEmail = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile().getEmail();
-                        this.listUpcomingEvents();
-                    } else {
-                        this.userEmail = '';
-                        this.events = [];
+                methods: {
+                    initClient() {
+                        gapi.client.init({
+                            apiKey: API_KEY,
+                            clientId: CLIENT_ID,
+                            discoveryDocs: DISCOVERY_DOCS,
+                            scope: SCOPES
+                        }).then(() => {
+                            // Listen for sign-in state changes.
+                            gapi.auth2.getAuthInstance().isSignedIn.listen(this.updateSignInStatus);
+
+                            // Handle the initial sign-in state.
+                            this.updateSignInStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+                        }, (error) => {
+                            console.error('Error initializing GAPI client', error);
+                            alert('Error initializing Google API client. Check console for details.');
+                        });
+                    },
+                    updateSignInStatus(isSignedIn) {
+                        this.isSignedIn = isSignedIn;
+                        if (isSignedIn) {
+                            this.userEmail = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile().getEmail();
+                            this.listUpcomingEvents();
+                        } else {
+                            this.userEmail = '';
+                            this.events = [];
+                        }
+                    },
+                    handleAuthClick() {
+                        gapi.auth2.getAuthInstance().signIn();
+                    },
+                    listUpcomingEvents() {
+                        gapi.client.calendar.events.list({
+                            'calendarId': 'primary',
+                            'timeMin': (new Date()).toISOString(),
+                            'showDeleted': false,
+                            'singleEvents': true,
+                            'maxResults': 10,
+                            'orderBy': 'startTime'
+                        }).then((response) => {
+                            const events = response.result.items;
+                            this.events = events;
+                        }, (error) => {
+                            console.error('Error listing events', error);
+                            alert('Error listing calendar events. Check console for details.');
+                        });
+                    },
+                    formatEventTime(event) {
+                        const start = event.start.dateTime || event.start.date;
+                        const end = event.end.dateTime || event.end.date;
+                        return `${new Date(start).toLocaleString()} - ${new Date(end).toLocaleString()}`;
                     }
                 },
-                handleAuthClick() {
-                    gapi.auth2.getAuthInstance().signIn();
-                },
-                listUpcomingEvents() {
-                    gapi.client.calendar.events.list({
-                        'calendarId': 'primary',
-                        'timeMin': (new Date()).toISOString(),
-                        'showDeleted': false,
-                        'singleEvents': true,
-                        'maxResults': 10,
-                        'orderBy': 'startTime'
-                    }).then((response) => {
-                        const events = response.result.items;
-                        this.events = events;
-                    }, (error) => {
-                        console.error('Error listing events', error);
-                        alert('Error listing calendar events. Check console for details.');
-                    });
-                },
-                formatEventTime(event) {
-                    const start = event.start.dateTime || event.start.date;
-                    const end = event.end.dateTime || event.end.date;
-                    return `${new Date(start).toLocaleString()} - ${new Date(end).toLocaleString()}`;
+                mounted() {
+                    // Call initClient here, as gapi.load is now handled by gapi_onload
+                    this.initClient();
                 }
-            },
-            mounted() {
-                // Load the Google API client library
-                gapi.load('client:auth2', this.initClient);
-            }
-        });
+            });
+        }
     </script>
 </body>
 </html>
