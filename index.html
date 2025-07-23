@@ -38,8 +38,8 @@
     <script async defer src="https://apis.google.com/js/api.js"></script>
     <script>
         // Replace with your actual Client ID and API Key
-        const CLIENT_ID = '901537876464-0m6dvo8f6nbvj55mcrrrtafm0agc5e9d.apps.googleusercontent.com';
-        const API_KEY = 'AIzaSyAk_rZNUaPpp26PV5JeEf1JY42MUXf0WxU';
+        const CLIENT_ID = process.env.VUE_APP_CLIENT_ID;
+        const API_KEY = process.env.VUE_APP_API_KEY;
 
         // Discovery docs for APIs
         const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
